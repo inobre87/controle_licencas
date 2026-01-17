@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% block title %}Relatórios • Controle de Licenças{% endblock %}
+{% block content %}
+<div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+  <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+    <h1 class="text-xl font-semibold">Relatórios</h1>
+
+    <div class="flex gap-2">
+      <a class="px-3 py-2 rounded-xl bg-slate-200 text-slate-900 font-semibold hover:bg-white text-sm"
+         href="{% url 'exportar_excel' %}?{{ request.GET.urlencode }}">
+        Baixar Excel
+      </a>
+      <a class="px-3 py-2 rounded-xl bg-slate-200 text-slate-900 font-semibold hover:bg-white text-sm"
+         href="{% url 'exportar_pdf' %}?{{ request.GET.urlencode }}">
+        Baixar PDF
+      </a>
+    </div>
+  </div>
+
+  <form method="get" class="mt-5 grid grid-cols-1 md:grid-cols-6 gap-3 text-sm">
+    <div>
+      <label class="text-slate-300">Status</label>
+      <select name="status" class="mt-1 w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800">
+        <option value="">Todos</option>
+        <option value="LIVRE" {% if status == "LIVRE" %}selected{% endif %}>Livre</option>
+        <option value="EM_USO" {% if status == "EM_USO" %}selected{% endif %}>Em uso</option>
+      </select>
+    </div>
+
+    <div>
+      <label class="text-slate-300">Fabricante</label>
+      <select name="fabricante" class="mt-1 w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800">
+        <option value="">Todos</option>
+        <option value="MICROSOFT" {% if fabricante == "MICROSOFT" %}selected{% endif %}>Microsoft</option>
+        <option value="COREL" {% if fabricante == "COREL" %}selected{% endif %}>Corel</option>
+        <option value="ADOBE" {% if fabricante == "ADOBE" %}selected{% endif %}>Adobe</option>
+        <option value="OUTRO" {% if fabricante == "OUTRO" %}selected{% endif %}>Outro</option>
+      </select>
+    </div>
+
+    <div>
+      <label class="text-slate-300">Fornecedor</label>
+      <select name="fornecedor" class="mt-1 w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800">
+        <option value="">Todos</option>
+        {% for f in fornecedores %}
+          <option value="{{ f.id }}" {% if fornecedor == f.id|stringformat:"s" %}selected{% endif %}>{{ f.nome }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div>
+      <td class="p-3">{{ lic.departamento.nome }}</td>
+<td class="p-3">{{ lic.usuario_atual|default:"-" }}</td>
+      <label class="text-slate-300">Linha</label>
+      <select name="linha" class="mt-1 w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800">
+        <option value="">Todas</option>
+        {% for l in linhas %}
+          <option value="{{ l }}" {% if linha == l %}selected{% endif %}>{{ l }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div>
+      <label class="text-slate-300">Data de</label>
+      <input type="date" name="data_de" value="{{ data_de }}"
+             class="mt-1 w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800" />
+    </div>
+
+    <div>
+      <label class="text-slate-300">Data até</label>
+      <input type="date" name="data_ate" value="{{ data_ate }}"
+             class="mt-1 w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800" />
+    </div>
+
+    <div class="md:col-span-6 flex gap-2 mt-2">
+      <button class="px-4 py-2 rounded-xl bg-slate-200 text-slate-900 font-semibold hover:bg-white">Filtrar</button>
+      <a class="px-4 py-2 rounded-xl border border-slate-700 hover:bg-slate-950" href="{% url 'relatorios' %}">Limpar</a>
+    </div>
+  </form>
+</div>
+
+<div class="mt-4 bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead class="bg-slate-950">
+        <tr class="text-left">
+          <th class="p-3">Produto</th>
+          <th class="p-3">Chave/Serial</th>
+          <th class="p-3">Status</th>
+          <th class="p-3">Usuário</th>
+          <th class="p-3">Fornecedor</th>
+          <th class="p-3">Compra</th>
+          <th class="p-3">NF</th>
+          <th class="p-3">PDF</th>
+          <th class="p-3">Departamento</th>
+          <th class="p-3">Colaborador</th>
+
+        </tr>
+      </thead>
+      <tbody>
+        {% for lic in licencas %}
+          <tr class="border-t border-slate-800">
+            <td class="p-3">{{ lic.produto }}</td>
+            <td class="p-3 font-mono text-xs">{{ lic.chave_serial }}</td>
+            <td class="p-3">
+              {% if lic.status == "EM_USO" %}
+                <span class="px-2 py-1 rounded-lg bg-amber-950/40 border border-amber-900 text-amber-200">Em uso</span>
+              {% else %}
+                <span class="px-2 py-1 rounded-lg bg-emerald-950/40 border border-emerald-900 text-emerald-200">Livre</span>
+              {% endif %}
+            </td>
+            <td class="p-3">{{ lic.usuario_atual|default:"-" }}</td>
+            <td class="p-3">{{ lic.compra_nf.fornecedor.nome }}</td>
+            <td class="p-3">{{ lic.compra_nf.data_compra|date:"d/m/Y" }}</td>
+            <td class="p-3">{{ lic.compra_nf.numero_nf|default:"-" }}</td>
+            <td class="p-3">
+              <a class="text-slate-200 hover:text-white underline" href="{{ lic.compra_nf.arquivo_pdf.url }}" target="_blank">Abrir</a>
+            </td>
+          </tr>
+        {% empty %}
+          <tr><td class="p-4 text-slate-400" colspan="8">Nenhum registro encontrado.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

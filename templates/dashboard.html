@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% block title %}Dashboard • Controle de Licenças{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+  <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+    <div class="text-sm text-slate-400">Total de licenças</div>
+    <div class="text-3xl font-semibold mt-1">{{ total }}</div>
+  </div>
+
+  <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+    <div class="text-sm text-slate-400">Livres</div>
+    <div class="text-3xl font-semibold mt-1">{{ livres }}</div>
+  </div>
+
+  <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+    <div class="text-sm text-slate-400">Em uso</div>
+    <div class="text-3xl font-semibold mt-1">{{ em_uso }}</div>
+  </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-4">
+  <!-- Licenças por Linha -->
+  <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+    <div class="flex items-center justify-between">
+      <h2 class="font-semibold">Licenças por linha (Top 10)</h2>
+      <a class="text-sm text-slate-300 hover:text-white" href="{% url 'relatorios' %}">
+        Ver relatórios →
+      </a>
+    </div>
+    <div class="mt-4">
+      <canvas id="chartLinha" height="160"></canvas>
+    </div>
+  </div>
+
+  <!-- Licenças por Fabricante -->
+  <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+    <h2 class="font-semibold">Licenças por fabricante</h2>
+    <div class="mt-4">
+      <canvas id="chartFabricante" height="160"></canvas>
+    </div>
+  </div>
+
+  <!-- Licenças por Departamento -->
+  <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+    <h2 class="font-semibold">Licenças por departamento</h2>
+    <div class="mt-4">
+      <canvas id="chartDepartamento" height="160"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+  // Dados vindos da view
+  const linhaLabels = {{ por_linha_labels|safe }};
+  const linhaData = {{ por_linha_data|safe }};
+
+  const fabricanteLabels = {{ por_fabricante_labels|safe }};
+  const fabricanteData = {{ por_fabricante_data|safe }};
+
+  const deptLabels = {{ por_departamento_labels|safe }};
+  const deptData = {{ por_departamento_data|safe }};
+
+  // Gráfico por Linha
+  new Chart(document.getElementById("chartLinha"), {
+    type: "bar",
+    data: {
+      labels: linhaLabels,
+      datasets: [{
+        label: "Quantidade",
+        data: linhaData
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } }
+    }
+  });
+
+  // Gráfico por Fabricante
+  new Chart(document.getElementById("chartFabricante"), {
+    type: "doughnut",
+    data: {
+      labels: fabricanteLabels,
+      datasets: [{
+        label: "Quantidade",
+        data: fabricanteData
+      }]
+    },
+    options: {
+      responsive: true
+    }
+  });
+
+  // Gráfico por Departamento
+  new Chart(document.getElementById("chartDepartamento"), {
+    type: "bar",
+    data: {
+      labels: deptLabels,
+      datasets: [{
+        label: "Quantidade",
+        data: deptData
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } }
+    }
+  });
+</script>
+{% endblock %}

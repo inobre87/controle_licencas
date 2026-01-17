@@ -1,0 +1,24 @@
+# Python / Django
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.log
+
+# Virtualenv
+.venv/
+venv/
+
+# Banco local
+db.sqlite3
+
+# Uploads e estáticos gerados
+media/
+staticfiles/
+
+# Variáveis
+.env
+
+# macOS / VS Code
+.DS_Store
+.vscode/

@@ -1,0 +1,17 @@
+from django.contrib import admin
+from django.urls import path, include
+from django.conf import settings
+from django.conf.urls.static import static
+
+# Branding do Admin (aqui é seguro)
+admin.site.site_header = "Controle de Licenças"
+admin.site.site_title = "Controle de Licenças"
+admin.site.index_title = "Administração"
+
+urlpatterns = [
+    path("admin/", admin.site.urls),
+    path("", include("licencas.urls")),
+]
+
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
