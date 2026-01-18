@@ -1,6 +1,8 @@
 from django.db import models
 from django.core.exceptions import ValidationError
 from django.utils import timezone
+from django.db.models.functions import Lower
+
 
 class Fornecedor(models.Model):
     nome = models.CharField(max_length=180, unique=True)
@@ -13,6 +15,7 @@ class Fornecedor(models.Model):
 
     def __str__(self):
         return self.nome
+
 
 class CompraNF(models.Model):
     fornecedor = models.ForeignKey(Fornecedor, on_delete=models.PROTECT, related_name="compras")
@@ -29,6 +32,7 @@ class CompraNF(models.Model):
     def __str__(self):
         base = f"{self.fornecedor} - {self.data_compra:%d/%m/%Y}"
         return f"{base} (NF {self.numero_nf})" if self.numero_nf else base
+
 
 class Produto(models.Model):
     FABRICANTE_CHOICES = [
@@ -51,6 +55,7 @@ class Produto(models.Model):
         fab = dict(self.FABRICANTE_CHOICES).get(self.fabricante, self.fabricante)
         return f"{fab} • {self.linha} • {self.versao_edicao}"
 
+
 class Departamento(models.Model):
     nome = models.CharField(max_length=120, unique=True)
     ativo = models.BooleanField(default=True)
@@ -70,12 +75,12 @@ class Licenca(models.Model):
 
     produto = models.ForeignKey(Produto, on_delete=models.PROTECT, related_name="licencas")
     departamento = models.ForeignKey(
-    Departamento,
-    on_delete=models.PROTECT,
-    related_name="licencas",
-    null=True,
-    blank=True,
-)
+        Departamento,
+        on_delete=models.PROTECT,
+        related_name="licencas",
+        null=True,
+        blank=True,
+    )
     chave_serial = models.CharField(max_length=255, unique=True)
     compra_nf = models.ForeignKey(CompraNF, on_delete=models.PROTECT, related_name="licencas")
 
@@ -87,10 +92,44 @@ class Licenca(models.Model):
     )
     observacoes = models.TextField(blank=True)
 
+    class Meta:
+        # ✅ garante unicidade ignorando maiúsculas/minúsculas no Postgres
+        constraints = [
+            models.UniqueConstraint(
+                Lower("chave_serial"),
+                name="uniq_licenca_chave_serial_ci",
+            )
+        ]
 
     def clean(self):
-        if self.status == "EM_USO" and not self.usuario_atual.strip():
+        # Regras básicas já existentes
+        if self.status == "EM_USO" and not (self.usuario_atual or "").strip():
             raise ValidationError({"usuario_atual": "Informe o nome da pessoa que está usando a licença."})
+
+        # ✅ impede trocar usuário com status EM_USO sem liberar antes
+        if self.pk:
+            old = Licenca.objects.filter(pk=self.pk).values("status", "usuario_atual", "chave_serial").first()
+            if old:
+                old_status = old["status"]
+                old_usuario = (old["usuario_atual"] or "").strip()
+                new_usuario = (self.usuario_atual or "").strip()
+
+                # Se continua EM_USO e tenta trocar o usuário → bloqueia
+                if old_status == "EM_USO" and self.status == "EM_USO" and old_usuario and new_usuario and old_usuario != new_usuario:
+                    raise ValidationError({
+                        "usuario_atual": (
+                            "Esta licença já está EM USO por outra pessoa. "
+                            "Para alterar, primeiro marque como LIVRE e salve; depois marque EM USO com o novo usuário."
+                        )
+                    })
+
+        # ✅ unicidade case-insensitive no nível de validação também (antes do banco)
+        if self.chave_serial:
+            qs = Licenca.objects.filter(chave_serial__iexact=self.chave_serial.strip())
+            if self.pk:
+                qs = qs.exclude(pk=self.pk)
+            if qs.exists():
+                raise ValidationError({"chave_serial": "Já existe uma licença cadastrada com esta mesma chave (ignorando maiúsculas/minúsculas)."})
 
     def save(self, *args, **kwargs):
         old_status = None
@@ -102,17 +141,22 @@ class Licenca(models.Model):
 
         super().save(*args, **kwargs)
 
+        # Seu histórico continua funcionando como antes (por mudança de status)
         if old_status != self.status:
             if self.status == "EM_USO":
                 LicencaUso.objects.create(licenca=self, pessoa=self.usuario_atual, data_inicio=timezone.now())
             elif self.status == "LIVRE":
-                uso_aberto = LicencaUso.objects.filter(licenca=self, data_fim__isnull=True).order_by("-data_inicio").first()
+                uso_aberto = LicencaUso.objects.filter(
+                    licenca=self,
+                    data_fim__isnull=True
+                ).order_by("-data_inicio").first()
                 if uso_aberto:
                     uso_aberto.data_fim = timezone.now()
                     uso_aberto.save(update_fields=["data_fim"])
 
     def __str__(self):
         return f"{self.produto} • {self.chave_serial}"
+
 
 class LicencaUso(models.Model):
     licenca = models.ForeignKey(Licenca, on_delete=models.CASCADE, related_name="historico_uso")

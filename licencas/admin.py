@@ -1,6 +1,6 @@
 from django.contrib import admin
-from .models import Fornecedor, CompraNF, Produto, Licenca, LicencaUso
-from .models import Departamento
+from .models import Fornecedor, CompraNF, Produto, Licenca, LicencaUso, Departamento
+from .forms import LicencaForm
 
 
 @admin.register(Departamento)
@@ -9,11 +9,13 @@ class DepartamentoAdmin(admin.ModelAdmin):
     search_fields = ["nome"]
     list_filter = ["ativo"]
 
+
 @admin.register(Fornecedor)
 class FornecedorAdmin(admin.ModelAdmin):
     search_fields = ["nome", "cnpj", "email"]
     list_display = ["nome", "cnpj", "email", "telefone"]
     ordering = ["nome"]
+
 
 @admin.register(CompraNF)
 class CompraNFAdmin(admin.ModelAdmin):
@@ -23,6 +25,7 @@ class CompraNFAdmin(admin.ModelAdmin):
     date_hierarchy = "data_compra"
     autocomplete_fields = ["fornecedor"]
 
+
 @admin.register(Produto)
 class ProdutoAdmin(admin.ModelAdmin):
     search_fields = ["linha", "versao_edicao"]
@@ -30,26 +33,31 @@ class ProdutoAdmin(admin.ModelAdmin):
     list_display = ["fabricante", "linha", "versao_edicao", "ativo"]
     list_editable = ["ativo"]
 
+
 class LicencaUsoInline(admin.TabularInline):
     model = LicencaUso
     extra = 0
     readonly_fields = ["data_inicio", "data_fim"]
     can_delete = False
 
+
 @admin.register(Licenca)
 class LicencaAdmin(admin.ModelAdmin):
+    # ✅ aqui conecta o forms.py para validar e mostrar mensagens amigáveis
+    form = LicencaForm
+
     search_fields = ["chave_serial", "produto__linha", "produto__versao_edicao", "compra_nf__fornecedor__nome", "usuario_atual"]
     list_filter = ["status", "departamento", "produto__fabricante"]
     list_display = [
-    "produto",
-    "departamento",
-    "status",
-    "usuario_atual",
-    "fornecedor",
-    "data_compra",
-    "numero_nf",
-    "chave_serial",
-]
+        "produto",
+        "departamento",
+        "status",
+        "usuario_atual",
+        "fornecedor",
+        "data_compra",
+        "numero_nf",
+        "chave_serial",
+    ]
     autocomplete_fields = ["produto", "compra_nf"]
     inlines = [LicencaUsoInline]
 
