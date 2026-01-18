@@ -1,4 +1,7 @@
 from django.contrib import admin
+from django.urls import reverse
+from django.utils.html import format_html
+
 from .models import Fornecedor, CompraNF, Produto, Licenca, LicencaUso, Departamento
 from .forms import LicencaForm
 
@@ -43,7 +46,6 @@ class LicencaUsoInline(admin.TabularInline):
 
 @admin.register(Licenca)
 class LicencaAdmin(admin.ModelAdmin):
-    # ✅ aqui conecta o forms.py para validar e mostrar mensagens amigáveis
     form = LicencaForm
 
     search_fields = ["chave_serial", "produto__linha", "produto__versao_edicao", "compra_nf__fornecedor__nome", "usuario_atual"]
@@ -57,9 +59,17 @@ class LicencaAdmin(admin.ModelAdmin):
         "data_compra",
         "numero_nf",
         "chave_serial",
+        "btn_atribuir",   # ✅ botão novo
     ]
     autocomplete_fields = ["produto", "compra_nf"]
     inlines = [LicencaUsoInline]
+
+    @admin.display(description="Atribuir")
+    def btn_atribuir(self, obj):
+        if obj.status != "LIVRE":
+            return "-"
+        url = reverse("admin:licencas_licenca_change", args=[obj.pk])
+        return format_html('<a class="button" href="{}">Atribuir</a>', url)
 
     def fornecedor(self, obj):
         return obj.compra_nf.fornecedor

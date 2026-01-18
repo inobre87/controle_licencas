@@ -102,7 +102,11 @@ class Licenca(models.Model):
         ]
 
     def clean(self):
-        # Regras básicas já existentes
+        # ✅ REGRA: se informou usuário, vira EM_USO
+        if (self.usuario_atual or "").strip():
+            self.status = "EM_USO"
+
+        # Regras básicas
         if self.status == "EM_USO" and not (self.usuario_atual or "").strip():
             raise ValidationError({"usuario_atual": "Informe o nome da pessoa que está usando a licença."})
 
@@ -114,7 +118,6 @@ class Licenca(models.Model):
                 old_usuario = (old["usuario_atual"] or "").strip()
                 new_usuario = (self.usuario_atual or "").strip()
 
-                # Se continua EM_USO e tenta trocar o usuário → bloqueia
                 if old_status == "EM_USO" and self.status == "EM_USO" and old_usuario and new_usuario and old_usuario != new_usuario:
                     raise ValidationError({
                         "usuario_atual": (
@@ -123,7 +126,7 @@ class Licenca(models.Model):
                         )
                     })
 
-        # ✅ unicidade case-insensitive no nível de validação também (antes do banco)
+        # ✅ unicidade case-insensitive antes do banco
         if self.chave_serial:
             qs = Licenca.objects.filter(chave_serial__iexact=self.chave_serial.strip())
             if self.pk:
@@ -136,12 +139,17 @@ class Licenca(models.Model):
         if self.pk:
             old_status = Licenca.objects.filter(pk=self.pk).values_list("status", flat=True).first()
 
+        # ✅ NOVO: se informou usuário, força EM_USO automaticamente
+        if (self.usuario_atual or "").strip():
+            self.status = "EM_USO"
+
+        # Se LIVRE, limpa usuário
         if self.status == "LIVRE":
             self.usuario_atual = ""
 
         super().save(*args, **kwargs)
 
-        # Seu histórico continua funcionando como antes (por mudança de status)
+        # Histórico continua por mudança de status
         if old_status != self.status:
             if self.status == "EM_USO":
                 LicencaUso.objects.create(licenca=self, pessoa=self.usuario_atual, data_inicio=timezone.now())
