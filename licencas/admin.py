@@ -1,8 +1,5 @@
 from django.contrib import admin
-from django.urls import reverse
-from django.utils.html import format_html
-
-from .models import Fornecedor, CompraNF, Produto, Licenca, LicencaUso, Departamento
+from .models import Fornecedor, CompraNF, Produto, Licenca, LicencaUso, Departamento, LicencaLivre
 from .forms import LicencaForm
 
 
@@ -48,7 +45,13 @@ class LicencaUsoInline(admin.TabularInline):
 class LicencaAdmin(admin.ModelAdmin):
     form = LicencaForm
 
-    search_fields = ["chave_serial", "produto__linha", "produto__versao_edicao", "compra_nf__fornecedor__nome", "usuario_atual"]
+    search_fields = [
+        "chave_serial",
+        "produto__linha",
+        "produto__versao_edicao",
+        "compra_nf__fornecedor__nome",
+        "usuario_atual",
+    ]
     list_filter = ["status", "departamento", "produto__fabricante"]
     list_display = [
         "produto",
@@ -59,17 +62,9 @@ class LicencaAdmin(admin.ModelAdmin):
         "data_compra",
         "numero_nf",
         "chave_serial",
-        "btn_atribuir",   # ✅ botão novo
     ]
     autocomplete_fields = ["produto", "compra_nf"]
     inlines = [LicencaUsoInline]
-
-    @admin.display(description="Atribuir")
-    def btn_atribuir(self, obj):
-        if obj.status != "LIVRE":
-            return "-"
-        url = reverse("admin:licencas_licenca_change", args=[obj.pk])
-        return format_html('<a class="button" href="{}">Atribuir</a>', url)
 
     def fornecedor(self, obj):
         return obj.compra_nf.fornecedor
@@ -82,3 +77,13 @@ class LicencaAdmin(admin.ModelAdmin):
     def numero_nf(self, obj):
         return obj.compra_nf.numero_nf
     numero_nf.admin_order_field = "compra_nf__numero_nf"
+
+
+# ✅ MENU SEPARADO: "Licenças Livres"
+@admin.register(LicencaLivre)
+class LicencaLivreAdmin(LicencaAdmin):
+    # herda tudo do LicencaAdmin (inclui form e inline)
+    # só muda o queryset pra mostrar apenas LIVRE
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        return qs.filter(status="LIVRE")

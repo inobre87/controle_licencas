@@ -12,6 +12,8 @@ class Fornecedor(models.Model):
 
     class Meta:
         ordering = ["nome"]
+        verbose_name = "Cadastro • Fornecedor"
+        verbose_name_plural = "Cadastros • Fornecedores"
 
     def __str__(self):
         return self.nome
@@ -28,6 +30,8 @@ class CompraNF(models.Model):
 
     class Meta:
         ordering = ["-data_compra", "-id"]
+        verbose_name = "Cadastro • Compra (NF)"
+        verbose_name_plural = "Cadastros • Compras (NFs)"
 
     def __str__(self):
         base = f"{self.fornecedor} - {self.data_compra:%d/%m/%Y}"
@@ -50,6 +54,8 @@ class Produto(models.Model):
     class Meta:
         unique_together = ("fabricante", "linha", "versao_edicao")
         ordering = ["fabricante", "linha", "versao_edicao"]
+        verbose_name = "Cadastro • Produto"
+        verbose_name_plural = "Cadastros • Produtos"
 
     def __str__(self):
         fab = dict(self.FABRICANTE_CHOICES).get(self.fabricante, self.fabricante)
@@ -62,6 +68,8 @@ class Departamento(models.Model):
 
     class Meta:
         ordering = ["nome"]
+        verbose_name = "Gestão • Departamento"
+        verbose_name_plural = "Gestão • Departamentos"
 
     def __str__(self):
         return self.nome
@@ -93,31 +101,26 @@ class Licenca(models.Model):
     observacoes = models.TextField(blank=True)
 
     class Meta:
-        # ✅ garante unicidade ignorando maiúsculas/minúsculas no Postgres
         constraints = [
             models.UniqueConstraint(
                 Lower("chave_serial"),
                 name="uniq_licenca_chave_serial_ci",
             )
         ]
+        verbose_name = "Gestão • Licença"
+        verbose_name_plural = "Gestão • Licenças"
 
     def clean(self):
-        # ✅ REGRA: se informou usuário, vira EM_USO
-        if (self.usuario_atual or "").strip():
-            self.status = "EM_USO"
-
-        # Regras básicas
         if self.status == "EM_USO" and not (self.usuario_atual or "").strip():
             raise ValidationError({"usuario_atual": "Informe o nome da pessoa que está usando a licença."})
 
-        # ✅ impede trocar usuário com status EM_USO sem liberar antes
+        # impede trocar usuário com status EM_USO sem liberar antes
         if self.pk:
-            old = Licenca.objects.filter(pk=self.pk).values("status", "usuario_atual", "chave_serial").first()
+            old = Licenca.objects.filter(pk=self.pk).values("status", "usuario_atual").first()
             if old:
                 old_status = old["status"]
                 old_usuario = (old["usuario_atual"] or "").strip()
                 new_usuario = (self.usuario_atual or "").strip()
-
                 if old_status == "EM_USO" and self.status == "EM_USO" and old_usuario and new_usuario and old_usuario != new_usuario:
                     raise ValidationError({
                         "usuario_atual": (
@@ -126,7 +129,7 @@ class Licenca(models.Model):
                         )
                     })
 
-        # ✅ unicidade case-insensitive antes do banco
+        # unicidade case-insensitive também antes do banco
         if self.chave_serial:
             qs = Licenca.objects.filter(chave_serial__iexact=self.chave_serial.strip())
             if self.pk:
@@ -139,17 +142,12 @@ class Licenca(models.Model):
         if self.pk:
             old_status = Licenca.objects.filter(pk=self.pk).values_list("status", flat=True).first()
 
-        # ✅ NOVO: se informou usuário, força EM_USO automaticamente
-        if (self.usuario_atual or "").strip():
-            self.status = "EM_USO"
-
-        # Se LIVRE, limpa usuário
         if self.status == "LIVRE":
             self.usuario_atual = ""
 
         super().save(*args, **kwargs)
 
-        # Histórico continua por mudança de status
+        # histórico por mudança de status
         if old_status != self.status:
             if self.status == "EM_USO":
                 LicencaUso.objects.create(licenca=self, pessoa=self.usuario_atual, data_inicio=timezone.now())
@@ -175,7 +173,17 @@ class LicencaUso(models.Model):
 
     class Meta:
         ordering = ["-data_inicio"]
+        verbose_name = "Histórico • Uso de Licença"
+        verbose_name_plural = "Histórico • Usos de Licença"
 
     def __str__(self):
         fim = self.data_fim.strftime("%d/%m/%Y %H:%M") if self.data_fim else "em aberto"
         return f"{self.pessoa} ({self.data_inicio:%d/%m/%Y %H:%M} → {fim})"
+
+
+# ✅ PROXY MODEL: não cria tabela, só cria um "menu" separado no admin
+class LicencaLivre(Licenca):
+    class Meta:
+        proxy = True
+        verbose_name = "Gestão • Licença Livre"
+        verbose_name_plural = "Gestão • Licenças Livres"
